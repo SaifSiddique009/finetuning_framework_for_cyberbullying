@@ -1,0 +1,189 @@
+# =============================================================================
+# EXPERIMENT CONFIGURATIONS
+# =============================================================================
+# Copy and modify these configurations for your experiments.
+# Run with: python main.py [paste arguments here]
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# EXPERIMENT 1: Baseline (BanglaBERT)
+# -----------------------------------------------------------------------------
+# A good starting point with default BanglaBERT
+# Expected F1: ~0.75-0.85
+
+--author_name "baseline_banglabert"
+--dataset_path "./data.csv"
+--model_path "sagorsarker/bangla-bert-base"
+--batch 32
+--lr 2e-5
+--epochs 15
+--num_folds 5
+--dropout 0.1
+--weight_decay 0.01
+--warmup_ratio 0.1
+--early_stopping_patience 5
+--stratification_type multilabel
+
+# -----------------------------------------------------------------------------
+# EXPERIMENT 2: Larger Batch Size
+# -----------------------------------------------------------------------------
+# Better gradient estimates, but requires more GPU memory
+# Use on GPUs with 16GB+ memory
+
+--author_name "large_batch"
+--dataset_path "./data.csv"
+--model_path "sagorsarker/bangla-bert-base"
+--batch 64
+--lr 3e-5
+--epochs 15
+--num_folds 5
+--dropout 0.1
+--weight_decay 0.01
+--warmup_ratio 0.1
+--early_stopping_patience 5
+
+# -----------------------------------------------------------------------------
+# EXPERIMENT 3: Lower Learning Rate
+# -----------------------------------------------------------------------------
+# More stable training, might need more epochs
+
+--author_name "low_lr"
+--dataset_path "./data.csv"
+--model_path "sagorsarker/bangla-bert-base"
+--batch 32
+--lr 1e-5
+--epochs 20
+--num_folds 5
+--dropout 0.1
+--weight_decay 0.01
+--warmup_ratio 0.15
+--early_stopping_patience 7
+
+# -----------------------------------------------------------------------------
+# EXPERIMENT 4: Higher Dropout (Regularization)
+# -----------------------------------------------------------------------------
+# Better for preventing overfitting on small datasets
+
+--author_name "high_dropout"
+--dataset_path "./data.csv"
+--model_path "sagorsarker/bangla-bert-base"
+--batch 32
+--lr 2e-5
+--epochs 15
+--num_folds 5
+--dropout 0.3
+--weight_decay 0.02
+--warmup_ratio 0.1
+--early_stopping_patience 5
+
+# -----------------------------------------------------------------------------
+# EXPERIMENT 5: Frozen Base Layers (Feature Extraction)
+# -----------------------------------------------------------------------------
+# Much faster training, good for quick experiments
+# Trains only the classifier head
+
+--author_name "frozen_base"
+--dataset_path "./data.csv"
+--model_path "sagorsarker/bangla-bert-base"
+--batch 64
+--lr 1e-3
+--epochs 30
+--num_folds 5
+--dropout 0.1
+--weight_decay 0.01
+--warmup_ratio 0.1
+--early_stopping_patience 10
+--freeze_base
+
+# -----------------------------------------------------------------------------
+# EXPERIMENT 6: mBERT (Multilingual BERT)
+# -----------------------------------------------------------------------------
+# Alternative base model, might work better for code-mixed text
+
+--author_name "mbert_baseline"
+--dataset_path "./data.csv"
+--model_path "bert-base-multilingual-cased"
+--batch 32
+--lr 2e-5
+--epochs 15
+--num_folds 5
+--dropout 0.1
+--weight_decay 0.01
+--warmup_ratio 0.1
+--early_stopping_patience 5
+
+# -----------------------------------------------------------------------------
+# EXPERIMENT 7: XLM-RoBERTa
+# -----------------------------------------------------------------------------
+# Strong multilingual model, often outperforms mBERT
+# Larger model, needs more memory
+
+--author_name "xlm_roberta"
+--dataset_path "./data.csv"
+--model_path "xlm-roberta-base"
+--batch 16
+--lr 2e-5
+--epochs 15
+--num_folds 5
+--dropout 0.1
+--weight_decay 0.01
+--warmup_ratio 0.1
+--early_stopping_patience 5
+
+# -----------------------------------------------------------------------------
+# EXPERIMENT 8: Quick Test (2 Folds, Few Epochs)
+# -----------------------------------------------------------------------------
+# For testing the pipeline, not for actual results
+
+--author_name "quick_test"
+--dataset_path "./data.csv"
+--model_path "sagorsarker/bangla-bert-base"
+--batch 32
+--lr 2e-5
+--epochs 2
+--num_folds 2
+--dropout 0.1
+--weight_decay 0.01
+--warmup_ratio 0.1
+--early_stopping_patience 2
+
+# -----------------------------------------------------------------------------
+# EXPERIMENT 9: Production Run (with Hub Push)
+# -----------------------------------------------------------------------------
+# Final run with model deployment
+
+--author_name "production"
+--dataset_path "./data.csv"
+--model_path "sagorsarker/bangla-bert-base"
+--batch 32
+--lr 2e-5
+--epochs 15
+--num_folds 5
+--dropout 0.1
+--weight_decay 0.01
+--warmup_ratio 0.1
+--early_stopping_patience 5
+--stratification_type multilabel
+--push_to_hub
+--hub_repo_name "your-username/bangla-cyberbully-detector"
+
+# =============================================================================
+# HOW TO USE
+# =============================================================================
+# 
+# 1. Copy the experiment you want to run
+# 2. Paste into a single line (remove line breaks) or use backslashes
+# 3. Run: python main.py [pasted arguments]
+#
+# Example (all in one line):
+# python main.py --author_name "baseline" --dataset_path "./data.csv" --batch 32 --lr 2e-5 --epochs 15
+#
+# Example (with backslashes):
+# python main.py \
+#     --author_name "baseline" \
+#     --dataset_path "./data.csv" \
+#     --batch 32 \
+#     --lr 2e-5 \
+#     --epochs 15
+#
+# =============================================================================
