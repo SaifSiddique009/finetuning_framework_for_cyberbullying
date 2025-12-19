@@ -39,8 +39,8 @@ A production-ready framework for fine-tuning transformer models on Bangla cyberb
 
 ```python
 # 1. Clone the repository
-!git clone https://github.com/YOUR_USERNAME/bangla-cyberbullying-detection.git
-%cd bangla-cyberbullying-detection
+!git clone https://github.com/SaifSiddique009/finetuning_framework_for_cyberbullying.git
+%cd finetuning_framework_for_cyberbullying
 
 # 2. Install dependencies
 !pip install -q torch transformers scikit-learn pandas numpy tqdm mlflow iterative-stratification huggingface_hub
@@ -64,8 +64,8 @@ A production-ready framework for fine-tuning transformer models on Bangla cyberb
 # 1. Add the dataset to your Kaggle notebook
 
 # 2. Clone and install
-!git clone https://github.com/YOUR_USERNAME/bangla-cyberbullying-detection.git
-%cd bangla-cyberbullying-detection
+!git clone https://github.com/SaifSiddique009/finetuning_framework_for_cyberbullying.git
+%cd finetuning_framework_for_cyberbullying
 !pip install -q transformers mlflow iterative-stratification huggingface_hub
 
 # 3. Run training (Kaggle has PyTorch pre-installed)
@@ -81,8 +81,8 @@ A production-ready framework for fine-tuning transformer models on Bangla cyberb
 
 ```bash
 # 1. Clone repository
-git clone https://github.com/YOUR_USERNAME/bangla-cyberbullying-detection.git
-cd bangla-cyberbullying-detection
+git clone https://github.com/SaifSiddique009/finetuning_framework_for_cyberbullying.git
+cd finetuning_framework_for_cyberbullying
 
 # 2. Create virtual environment (optional but recommended)
 python -m venv venv
@@ -210,7 +210,7 @@ for label, prob, pred in zip(labels, probs, preds):
 ## 📁 Project Structure
 
 ```
-bangla-cyberbullying-detection/
+finetuning_framework_for_cyberbullying/
 ├── main.py              # Entry point for training
 ├── config.py            # Configuration and argument parsing
 ├── data.py              # Data loading and preprocessing
@@ -289,7 +289,7 @@ comment,bully,sexual,religious,threat,spam
 ### MLflow UI
 ```bash
 # Navigate to project directory
-cd bangla-cyberbullying-detection
+cd finetuning_framework_for_cyberbullying
 
 # Start MLflow UI
 mlflow ui
@@ -326,12 +326,12 @@ After training, find metrics in:
 ## 📝 Citation
 
 ```bibtex
-@misc{bangla-cyberbullying-detection,
+@misc{finetuning_framework_for_cyberbullying,
   author = {Your Name},
   title = {Bangla Cyberbullying Detection with Multi-Label Classification},
   year = {2024},
   publisher = {GitHub},
-  url = {https://github.com/YOUR_USERNAME/bangla-cyberbullying-detection}
+  url = {https://github.com/SaifSiddique009/finetuning_framework_for_cyberbullying}
 }
 ```
 
