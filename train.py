@@ -281,7 +281,7 @@ def print_epoch_metrics(epoch, num_epochs, fold, num_folds, train_metrics, val_m
 # CSV EXPORT (from Codebase 1)
 # =============================================================================
 
-def save_metrics_to_csv(fold_results, best_fold_idx, best_fold_metrics, config, output_dir='./outputs'):
+def save_metrics_to_csv(fold_results, best_fold_idx, best_fold_metrics, config, model_metrics, output_dir='./outputs'):
     """
     Save fold summary and best metrics to CSV files.
     
@@ -290,6 +290,7 @@ def save_metrics_to_csv(fold_results, best_fold_idx, best_fold_metrics, config, 
         best_fold_idx: Index of the best fold
         best_fold_metrics: Metrics dictionary for the best fold
         config: Configuration object
+        model_metrics: Dictionary with model size and parameter counts
         output_dir: Directory to save CSV files
         
     Returns:
@@ -338,13 +339,23 @@ def save_metrics_to_csv(fold_results, best_fold_idx, best_fold_metrics, config, 
     summary_df.to_csv(fold_summary_path, index=False)
     print(f"   ✓ Fold summary saved to: {fold_summary_path}")
     
-    # Best Metrics CSV
+    # Best Metrics CSV (with experiment configuration)
     best_metrics_filename = f'best_metrics_{model_name_safe}_batch{config.batch}_lr{config.lr}_epochs{config.epochs}_{timestamp}.csv'
     best_metrics_path = os.path.join(output_dir, best_metrics_filename)
     
     best_metrics_data = {
+        # Experiment Configuration (NEW)
+        'Model': [config.model_path],
+        'Batch Size': [config.batch],
+        'Learning Rate': [config.lr],
+        'Epochs': [config.epochs],
+        'Model Size (MB)': [model_metrics['model_size_mb'] if model_metrics else None],
+        'Total Parameters': [model_metrics['total_parameters'] if model_metrics else None],
+        'Trainable Parameters': [model_metrics['trainable_parameters'] if model_metrics else None],
+        # Training Results
         'Best Fold': [f'Fold {best_fold_idx+1}'],
         'Best Epoch': [best_fold_metrics['best_epoch']],
+        # Validation Metrics
         'Val Loss': [best_fold_metrics['loss']],
         'Val Accuracy': [best_fold_metrics['accuracy']],
         'Val Per-Label Accuracy': [best_fold_metrics['per_label_accuracy']],
@@ -355,6 +366,7 @@ def save_metrics_to_csv(fold_results, best_fold_idx, best_fold_metrics, config, 
         'Val Precision (macro)': [best_fold_metrics['precision_macro']],
         'Val Recall (macro)': [best_fold_metrics['recall_macro']],
         'Val F1 (macro)': [best_fold_metrics['f1_macro']],
+        # Training Metrics
         'Train Loss': [best_fold_metrics['train_loss']],
         'Train Accuracy': [best_fold_metrics['train_accuracy']],
         'Train F1 (weighted)': [best_fold_metrics['train_f1_weighted']],
@@ -654,7 +666,7 @@ def run_kfold_training(config, comments, labels, tokenizer, device):
         
         try:
             fold_summary_path, best_metrics_path = save_metrics_to_csv(
-                fold_results, best_fold_idx, best_fold_metrics, config, output_dir
+                fold_results, best_fold_idx, best_fold_metrics, config, model_metrics, output_dir
             )
             
             mlflow.log_artifact(fold_summary_path)
