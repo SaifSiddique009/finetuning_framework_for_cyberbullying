@@ -77,17 +77,27 @@ def merge_best_metrics(input_dir='./outputs', output_file='all_experiments.xlsx'
     
     # Use openpyxl for Excel formatting
     try:
+        from openpyxl.utils import get_column_letter
+        
         with pd.ExcelWriter(output_path, engine='openpyxl') as writer:
             combined_df.to_excel(writer, sheet_name='All Experiments', index=False)
             
             # Auto-adjust column widths
             worksheet = writer.sheets['All Experiments']
             for idx, col in enumerate(combined_df.columns):
-                max_length = max(
-                    combined_df[col].astype(str).map(len).max(),
-                    len(col)
-                ) + 2
-                worksheet.column_dimensions[chr(65 + idx) if idx < 26 else f'A{chr(65 + idx - 26)}'].width = min(max_length, 50)
+                # Calculate max length, handling NaN values
+                col_lengths = combined_df[col].astype(str).map(len)
+                col_max_len = col_lengths.max()
+                
+                # Handle NaN or empty columns
+                if pd.isna(col_max_len):
+                    col_max_len = 0
+                
+                max_length = max(int(col_max_len), len(str(col))) + 2
+                
+                # Get proper column letter (works for any number of columns)
+                column_letter = get_column_letter(idx + 1)
+                worksheet.column_dimensions[column_letter].width = min(max_length, 50)
         
         print(f"\n✅ Merged results saved to: {output_path}")
         
