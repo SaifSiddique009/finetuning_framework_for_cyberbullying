@@ -37,6 +37,23 @@ from utils import get_model_metrics, print_fold_summary, print_experiment_summar
 # DATASET CACHING (from Codebase 1)
 # =============================================================================
 
+def get_cache_filename(model_path, fold, split='train'):
+    """
+    Generate a cache filename that includes the model name to prevent 
+    tokenizer mismatch when switching between models.
+    
+    Args:
+        model_path: HuggingFace model path (e.g., 'sagorsarker/bangla-bert-base')
+        fold: Fold number
+        split: 'train' or 'val'
+        
+    Returns:
+        str: Cache filename (e.g., 'sagorsarker_bangla-bert-base_train_fold0.pkl')
+    """
+    model_name_safe = model_path.replace('/', '_').replace('\\', '_')
+    return f'{model_name_safe}_{split}_fold{fold}.pkl'
+
+
 def cache_dataset(comments, labels, tokenizer, max_length, cache_file):
     """
     Cache dataset to avoid reprocessing on repeated runs.
@@ -509,8 +526,8 @@ def run_kfold_training(config, comments, labels, tokenizer, device):
             # CREATE DATASETS (with optional caching)
             # -----------------------------------------------------------------
             if use_cache:
-                train_cache_path = os.path.join(cache_dir, f'train_cache_fold{fold}.pkl')
-                val_cache_path = os.path.join(cache_dir, f'val_cache_fold{fold}.pkl')
+                train_cache_path = os.path.join(cache_dir, get_cache_filename(config.model_path, fold, 'train'))
+                val_cache_path = os.path.join(cache_dir, get_cache_filename(config.model_path, fold, 'val'))
                 
                 train_dataset = cache_dataset(
                     train_comments, train_labels, tokenizer, 
