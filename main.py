@@ -10,6 +10,10 @@ Example:
     python main.py --author_name "saif" --dataset_path "./data.csv" --batch 32 --lr 2e-5 --epochs 15
 """
 
+# Disable tokenizers parallelism to avoid fork warning
+import os
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
+
 import torch
 from transformers import AutoTokenizer
 import warnings
