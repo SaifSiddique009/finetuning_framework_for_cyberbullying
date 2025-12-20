@@ -34,57 +34,117 @@ from utils import get_model_metrics, print_fold_summary, print_experiment_summar
 
 
 # =============================================================================
-# DATASET CACHING (from Codebase 1)
+# DATASET CACHING (OPTIMIZED - tokenize once, index by fold)
 # =============================================================================
 
-def get_cache_filename(model_path, fold, split='train'):
+def get_cache_filename(model_path, max_length):
     """
-    Generate a cache filename that includes the model name to prevent 
-    tokenizer mismatch when switching between models.
+    Generate a cache filename that includes the model name and max_length.
     
     Args:
         model_path: HuggingFace model path (e.g., 'sagorsarker/bangla-bert-base')
-        fold: Fold number
-        split: 'train' or 'val'
+        max_length: Maximum sequence length used for tokenization
         
     Returns:
-        str: Cache filename (e.g., 'sagorsarker_bangla-bert-base_train_fold0.pkl')
+        str: Cache filename (e.g., 'sagorsarker_bangla-bert-base_maxlen128.pkl')
     """
     model_name_safe = model_path.replace('/', '_').replace('\\', '_')
-    return f'{model_name_safe}_{split}_fold{fold}.pkl'
+    return f'{model_name_safe}_maxlen{max_length}_tokenized.pkl'
 
 
-def cache_dataset(comments, labels, tokenizer, max_length, cache_file):
+def get_or_create_tokenized_dataset(comments, labels, tokenizer, max_length, cache_dir, model_path):
     """
-    Cache dataset to avoid reprocessing on repeated runs.
+    Get or create a fully tokenized dataset. Tokenizes ALL samples ONCE and caches them.
+    
+    This is much more efficient than per-fold caching because:
+    - Each sample is tokenized only ONCE (not K times for K folds)
+    - Subsequent runs load instantly regardless of fold configuration
     
     Args:
-        comments: Array of text comments
-        labels: Array of labels
+        comments: Array of all text comments
+        labels: Array of all labels
         tokenizer: Tokenizer for text encoding
         max_length: Maximum sequence length
-        cache_file: Path to cache file
+        cache_dir: Directory to store cache
+        model_path: Model path (for cache filename)
         
     Returns:
-        CyberbullyingDataset: Cached or newly created dataset
+        dict: Dictionary containing tokenized data:
+              - 'input_ids': List of input_ids for each sample
+              - 'attention_mask': List of attention_masks for each sample
+              - 'labels': Array of labels
     """
+    os.makedirs(cache_dir, exist_ok=True)
+    cache_file = os.path.join(cache_dir, get_cache_filename(model_path, max_length))
+    
     if os.path.exists(cache_file):
-        print(f"  📦 Loading cached dataset from {cache_file}")
+        print(f"\n  📦 Loading cached tokenized dataset from {cache_file}")
         with open(cache_file, 'rb') as f:
-            return pickle.load(f)
+            cached_data = pickle.load(f)
+        print(f"     ✓ Loaded {len(cached_data['input_ids'])} pre-tokenized samples")
+        return cached_data
     
-    print(f"  🔄 Creating and caching dataset to {cache_file}")
-    dataset = data.CyberbullyingDataset(comments, labels, tokenizer, max_length)
+    print(f"\n  🔄 Tokenizing entire dataset ({len(comments)} samples)...")
+    print(f"     This is a one-time operation. Subsequent runs will load from cache.")
     
-    # Ensure cache directory exists
-    cache_dir = os.path.dirname(cache_file)
-    if cache_dir:
-        os.makedirs(cache_dir, exist_ok=True)
+    # Tokenize all samples
+    all_input_ids = []
+    all_attention_masks = []
     
+    from tqdm import tqdm
+    for comment in tqdm(comments, desc="  Tokenizing", leave=False):
+        encoding = tokenizer(
+            str(comment),
+            truncation=True,
+            padding='max_length',
+            max_length=max_length,
+            return_tensors='pt'
+        )
+        all_input_ids.append(encoding['input_ids'].squeeze(0))
+        all_attention_masks.append(encoding['attention_mask'].squeeze(0))
+    
+    # Stack into tensors
+    cached_data = {
+        'input_ids': torch.stack(all_input_ids),
+        'attention_mask': torch.stack(all_attention_masks),
+        'labels': torch.tensor(labels, dtype=torch.float)
+    }
+    
+    # Save to cache
+    print(f"  💾 Saving tokenized dataset to {cache_file}")
     with open(cache_file, 'wb') as f:
-        pickle.dump(dataset, f)
+        pickle.dump(cached_data, f)
     
-    return dataset
+    print(f"     ✓ Cached {len(comments)} tokenized samples")
+    
+    return cached_data
+
+
+class IndexedDataset(torch.utils.data.Dataset):
+    """
+    A dataset that indexes into pre-tokenized data.
+    This avoids re-tokenization for each fold.
+    """
+    
+    def __init__(self, tokenized_data, indices):
+        """
+        Args:
+            tokenized_data: Dictionary with 'input_ids', 'attention_mask', 'labels'
+            indices: Array of indices to use from the tokenized data
+        """
+        self.input_ids = tokenized_data['input_ids'][indices]
+        self.attention_mask = tokenized_data['attention_mask'][indices]
+        self.labels = tokenized_data['labels'][indices]
+    
+    def __len__(self):
+        return len(self.input_ids)
+    
+    def __getitem__(self, idx):
+        return {
+            'input_ids': self.input_ids[idx],
+            'attention_mask': self.attention_mask[idx],
+            'labels': self.labels[idx]
+        }
 
 
 # =============================================================================
@@ -497,6 +557,20 @@ def run_kfold_training(config, comments, labels, tokenizer, device):
             seed=config.seed
         )
         
+        # Convert to list to allow multiple iterations
+        kfold_splits = list(kfold_splits)
+        
+        # =====================================================================
+        # TOKENIZE DATASET ONCE (Efficient Caching)
+        # =====================================================================
+        if use_cache:
+            tokenized_data = get_or_create_tokenized_dataset(
+                comments, labels, tokenizer, config.max_length, 
+                cache_dir, config.model_path
+            )
+        else:
+            tokenized_data = None
+        
         # Store results for each fold
         fold_results = []
         best_fold_model = None
@@ -512,38 +586,30 @@ def run_kfold_training(config, comments, labels, tokenizer, device):
             print(f"📂 FOLD {fold + 1}/{config.num_folds}")
             print('='*70)
             
-            # Split data for current fold
-            train_comments, val_comments = comments[train_idx], comments[val_idx]
-            train_labels, val_labels = labels[train_idx], labels[val_idx]
+            print(f"   Training samples: {len(train_idx)}")
+            print(f"   Validation samples: {len(val_idx)}")
             
-            print(f"   Training samples: {len(train_comments)}")
-            print(f"   Validation samples: {len(val_comments)}")
-            
-            # Calculate class weights for imbalanced data
-            class_weights = data.calculate_class_weights(train_labels)
+            # Calculate class weights for imbalanced data (using original labels)
+            train_labels_fold = labels[train_idx]
+            class_weights = data.calculate_class_weights(train_labels_fold)
             
             # -----------------------------------------------------------------
             # CREATE DATASETS (with optional caching)
             # -----------------------------------------------------------------
-            if use_cache:
-                train_cache_path = os.path.join(cache_dir, get_cache_filename(config.model_path, fold, 'train'))
-                val_cache_path = os.path.join(cache_dir, get_cache_filename(config.model_path, fold, 'val'))
-                
-                train_dataset = cache_dataset(
-                    train_comments, train_labels, tokenizer, 
-                    config.max_length, train_cache_path
-                )
-                val_dataset = cache_dataset(
-                    val_comments, val_labels, tokenizer, 
-                    config.max_length, val_cache_path
-                )
+            if use_cache and tokenized_data is not None:
+                # Use indexed dataset (no re-tokenization!)
+                print(f"  📦 Using pre-tokenized data (instant fold creation)")
+                train_dataset = IndexedDataset(tokenized_data, train_idx)
+                val_dataset = IndexedDataset(tokenized_data, val_idx)
             else:
                 print("  🔄 Creating datasets (caching disabled)")
+                train_comments, val_comments = comments[train_idx], comments[val_idx]
+                train_labels_arr, val_labels_arr = labels[train_idx], labels[val_idx]
                 train_dataset = data.CyberbullyingDataset(
-                    train_comments, train_labels, tokenizer, config.max_length
+                    train_comments, train_labels_arr, tokenizer, config.max_length
                 )
                 val_dataset = data.CyberbullyingDataset(
-                    val_comments, val_labels, tokenizer, config.max_length
+                    val_comments, val_labels_arr, tokenizer, config.max_length
                 )
             
             train_loader = DataLoader(
